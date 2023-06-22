@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	stdlog "log"
 	"net"
+	"net/http"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -57,6 +58,8 @@ func main() {
 
 	r := bufio.NewReader(c)
 	r.ReadString('a')
+
+	http.Post()
 
 	time.Sleep(time.Hour)
 }
