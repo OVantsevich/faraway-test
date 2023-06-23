@@ -3,12 +3,13 @@ package main
 import (
 	"bufio"
 	"context"
+	"crypto/sha256"
 	"fmt"
+	"github.com/OVantsevich/faraway-test/server/protocol"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	stdlog "log"
 	"net"
-	"net/http"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -58,8 +59,7 @@ func main() {
 
 	r := bufio.NewReader(c)
 	r.ReadString('a')
-
-	http.Post()
+	a := protocol.NewProofOfWork(30, sha256.New())
 
 	time.Sleep(time.Hour)
 }
