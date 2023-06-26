@@ -1,15 +1,25 @@
 package protocol
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/sha256"
 	"fmt"
-	"hash"
 	"math"
 	"math/big"
 	"math/rand"
 	"net"
+	"strconv"
 	"time"
+)
+
+const (
+	// eom - const representing end of message part of pow communication.
+	eom = "EOM"
+	// del - const representing delimiter between parts in pow messages.
+	del = '|'
+	// challengeParts - const representing number of challenge message parts in marshal/unmarshal.
+	challengeParts = 3
 )
 
 // PowError represents an error encountered during Proof of Work.
@@ -43,20 +53,33 @@ func (pow *ProofOfWork) newChallenge(data []byte) *challenge {
 
 // marshal converts the challenge to a byte slice.
 func (c *challenge) marshal() []byte {
+	parts := [][]byte{
+		i32tob(uint32(len(c.data))),
+		c.data,
+		[]byte(eom),
+	}
+
+	if len(parts) != challengeParts {
+		panic("Invalid \"challengeParts\" const.")
+	}
+
 	return bytes.Join(
-		[][]byte{
-			c.data,
-		},
-		[]byte{},
+		parts,
+		[]byte{del},
 	)
 }
 
 // unmarshalChallenge converts a byte slice to a challenge.
-func (pow *ProofOfWork) unmarshalChallenge(data []byte) *challenge {
+func (pow *ProofOfWork) unmarshalChallenge(data []byte) (*challenge, error) {
+	parts := bytes.Split(data, []byte{del})
+	if len(parts) != challengeParts {
+		return nil, &PowError{"challenge message is malformed"}
+	}
+
 	return &challenge{
 		pow:  pow,
-		data: data[:],
-	}
+		data: parts[1],
+	}, nil
 }
 
 // nonceLen - len of nonce variable in bytes
@@ -85,20 +108,28 @@ func (r *response) marshal() []byte {
 		[][]byte{
 			r.hash[:],
 			i32tob(r.nonce),
+			{'F'},
 		},
-		[]byte{},
+		[]byte{'|'},
 	)
 }
 
-// unmarshalResponse converts a byte slice to a response.
-func (pow *ProofOfWork) unmarshalResponse(data []byte) (*response, error) {
-	if len(data) != pow.hash.Size()+nonceLen {
+// unmarshalResponse read data from bufio.Reader to a response.
+func (pow *ProofOfWork) unmarshalResponse(reader bufio.Reader) (*response, error) {
+	reader.
+		parts := bytes.Split(data, []byte{'|'})
+	if len(parts) != 2 {
 		return nil, &PowError{"response is malformed"}
 	}
 
+	nonce, err := btoi32(parts[1])
+	if err != nil {
+		return nil, fmt.Errorf("unmarshalResponse: %v", err)
+	}
+
 	return &response{
-		hash:  data[0:pow.hash.Size()],
-		nonce: btoi32(data[pow.hash.Size():]),
+		hash:  parts[0],
+		nonce: nonce,
 		pow:   pow,
 	}, nil
 }
@@ -124,16 +155,16 @@ type ProofOfWork struct {
 
 	// randu32 - uint32 random number generator
 	rand randu32
-
-	// hash - hash of PoW algorithm
-	hash hash.Hash
 }
 
 // NewProofOfWork creates a new Proof of Work configuration.
-func NewProofOfWork(targetBits uint8, hash hash.Hash, rand randu32, readTimeout time.Duration) *ProofOfWork {
+func NewProofOfWork(targetBits uint8, readTimeout time.Duration) *ProofOfWork {
+	s := rand.NewSource(time.Now().UnixNano())
+	r := rand.New(s)
+
 	target := big.NewInt(1)
 	target.Lsh(target, 256-uint(targetBits))
-	return &ProofOfWork{target: target, targetBits: targetBits, hash: hash, rand: rand, readTimeout: readTimeout}
+	return &ProofOfWork{target: target, targetBits: targetBits, rand: r, readTimeout: readTimeout}
 }
 
 // ChallengeResponse performs the Proof of Work challenge-response protocol.
@@ -152,7 +183,7 @@ func (pow *ProofOfWork) ChallengeResponse(conn net.Conn, data []byte) error {
 		}
 	}
 
-	rData := make([]byte, pow.hash.Size()+nonceLen)
+	rData := make([]byte, sha256.Size+nonceLen)
 	_, err = conn.Read(rData)
 	if err != nil {
 		return fmt.Errorf("ChallengeResponse: Read error: %v", err)
@@ -163,10 +194,13 @@ func (pow *ProofOfWork) ChallengeResponse(conn net.Conn, data []byte) error {
 		return err
 	}
 
-	if pow.validate(resp) && pow.compare(chal, resp) {
-		return nil
+	if !pow.validate(resp) || !pow.compare(chal, resp) {
+		fmt.Printf("%s\n", chal.data)
+		fmt.Printf("%v\n", resp.nonce)
+		fmt.Printf("%x\n", pow.computeHash(chal.data, resp.nonce))
+		return &PowError{"response is not valid"}
 	}
-	return &PowError{"response is not valid"}
+	return nil
 }
 
 // SolveChallenge performs the Proof of Work challenge-solving protocol.
@@ -182,7 +216,6 @@ func SolveChallenge(conn net.Conn, targetBits uint8) error {
 		targetBits:  targetBits,
 		readTimeout: 0,
 		rand:        r3,
-		hash:        sha256.New(),
 	}
 
 	return pow.SolveChallenge(conn)
@@ -192,10 +225,16 @@ func SolveChallenge(conn net.Conn, targetBits uint8) error {
 func (pow *ProofOfWork) SolveChallenge(conn net.Conn) error {
 	var data []byte
 	_, err := conn.Read(data)
+	netReader := bufio.NewReader(conn)
+	netReader.read
+
 	if err != nil {
 		return fmt.Errorf("SolveChallenge: Read error: %v", err)
 	}
-	chal := pow.unmarshalChallenge(data)
+	chal, err := pow.unmarshalChallenge(data)
+	if err != nil {
+		return fmt.Errorf("SolveChallenge: %v", err)
+	}
 
 	resp := pow.newResponse(nil, 0)
 	for resp.nonce < math.MaxInt32 {
@@ -218,49 +257,49 @@ func (pow *ProofOfWork) SolveChallenge(conn net.Conn) error {
 
 // computeHash calculates the hash value for the given data and nonce.
 func (pow *ProofOfWork) computeHash(data []byte, nonce uint32) []byte {
-	return pow.hash.Sum(
-		bytes.Join(
-			[][]byte{
-				i32tob(nonce),
-				data,
-			},
-			[]byte{},
-		))
+	checksum := sha256.Sum256(bytes.Join(
+		[][]byte{
+			i32tob(nonce),
+			data,
+		},
+		[]byte{},
+	))
+	return checksum[:]
 }
 
 // validate checks if the response hash is less than the target value.
 func (pow *ProofOfWork) validate(r *response) bool {
 	var hashInt big.Int
-
 	hashInt.SetBytes(r.hash[:])
-	isValid := hashInt.Cmp(pow.target) == -1
-
-	return isValid
+	return hashInt.Cmp(pow.target) == -1
 }
 
 // compare checks if the newly computed hash is equal to the response hash.
 func (pow *ProofOfWork) compare(c *challenge, r *response) bool {
 	newHash := pow.computeHash(c.data, r.nonce)
-
-	isEqual := bytes.Compare(newHash, r.hash) == 0
-
-	return isEqual
+	return bytes.Compare(newHash, r.hash) == 0
 }
 
-// i32tob converts a uint32 value to a byte slice.
+// i32tob converts a uint32 value to a byte slice in hex format.
 func i32tob(val uint32) []byte {
-	r := make([]byte, 4)
-	for i := uint32(0); i < 4; i++ {
-		r[i] = byte((val >> (8 * i)) & 0xff)
-	}
-	return r
+	hex := fmt.Sprintf("%x", val)
+	return []byte(hex)
 }
 
-// btoi32 converts a byte slice to a uint32 value.
-func btoi32(val []byte) uint32 {
-	r := uint32(0)
-	for i := uint32(0); i < 4; i++ {
-		r |= uint32(val[i]) << (8 * i)
+// btoi32 converts a byte slice in hex format to a uint32 value.
+func btoi32(hex []byte) (uint32, error) {
+	val, err := strconv.ParseUint(string(hex), 16, 32)
+	if err != nil {
+		return 0, fmt.Errorf("i32tob - ParseUint: %v", err)
 	}
-	return r
+	return uint32(val), nil
+}
+
+// stoi32 converts a string in hex format to a uint32 value.
+func stoi32(hex string) (uint32, error) {
+	val, err := strconv.ParseUint(hex, 16, 32)
+	if err != nil {
+		return 0, fmt.Errorf("i32tob - ParseUint: %v", err)
+	}
+	return uint32(val), nil
 }
