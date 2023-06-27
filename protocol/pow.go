@@ -11,6 +11,7 @@ import (
 	"math/big"
 	"net"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -44,6 +45,9 @@ type ProofOfWork struct {
 
 	// readTimeout - server timeout for waiting for a response
 	readTimeout time.Duration
+
+	// targetLock - mutex for server changing of target and targetBits.
+	targetLock sync.RWMutex
 }
 
 // NewProofOfWork creates a new Proof of Work configuration.
@@ -79,9 +83,12 @@ func (pow *ProofOfWork) ChallengeResponse(conn net.Conn, data []byte) error {
 		return fmt.Errorf("ChallengeResponse - readResponse: %v", err)
 	}
 
+	pow.targetLock.RLock()
 	if !pow.validate(resp) || !pow.compare(chal, resp) {
+		pow.targetLock.RUnlock()
 		return &PowError{"response is not valid"}
 	}
+	pow.targetLock.RUnlock()
 	return nil
 }
 
@@ -91,9 +98,8 @@ func SolveChallenge(conn net.Conn, targetBits uint8) error {
 	target.Lsh(target, hashBitLen-uint(targetBits))
 
 	pow := &ProofOfWork{
-		target:      target,
-		targetBits:  targetBits,
-		readTimeout: 0,
+		target:     target,
+		targetBits: targetBits,
 	}
 
 	return pow.SolveChallenge(conn)
@@ -229,6 +235,38 @@ func (r *response) marshal() []byte {
 		parts,
 		[]byte{del},
 	)
+}
+
+// IsError function takes an error (err) as input and checks if it is an instance of the PowError type.
+// If err is an instance of PowError, it returns true; otherwise, it returns false.
+func (pow *ProofOfWork) IsError(err error) bool {
+	_, ok := err.(*PowError)
+	return ok
+}
+
+// IncreaseComplexity function increases the complexity of the proof of work. It locks access to the target value (pow.targetLock.Lock()),
+// increments the pow.targetBits value, and then creates a new target value target using the big package for working with big integers.
+func (pow *ProofOfWork) IncreaseComplexity() {
+	pow.targetLock.Lock()
+	pow.targetBits++
+	target := big.NewInt(1)
+	target.Lsh(target, hashBitLen-uint(pow.targetBits))
+	pow.targetLock.Unlock()
+}
+
+// DecreaseComplexity function decreases the complexity of the proof of work. It locks access to the target value (pow.targetLock.Lock()),
+// decrements the pow.targetBits value, and then creates a new target value target using the big package for working with big integers.
+func (pow *ProofOfWork) DecreaseComplexity() {
+	pow.targetLock.Lock()
+	pow.targetBits--
+	target := big.NewInt(1)
+	target.Lsh(target, hashBitLen-uint(pow.targetBits))
+	pow.targetLock.Unlock()
+}
+
+// GetComplexity function returns the current complexity level as an integer value. It simply returns the value of pow.targetBits.
+func (pow *ProofOfWork) GetComplexity() int {
+	return int(pow.targetBits)
 }
 
 // computeHash calculates the hash value for the given data and nonce.
