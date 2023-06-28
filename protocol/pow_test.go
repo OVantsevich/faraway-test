@@ -111,7 +111,7 @@ func TestProofOfWork_SolveChallenge(t *testing.T) {
 		data := "127.0.0.1"
 		pow := NewProofOfWork(uint8(targetBits), 0)
 
-		address := fmt.Sprintf("localhost:111%d", targetBits)
+		address := fmt.Sprintf("localhost:333%d", targetBits)
 		l, err := net.Listen("tcp", address)
 		require.NoError(t, err)
 
@@ -135,7 +135,7 @@ func TestProofOfWork_SolveChallenge(t *testing.T) {
 		}
 		pow := NewProofOfWork(uint8(targetBits), 0)
 
-		address := fmt.Sprintf("localhost:111%d", rand.Intn(99))
+		address := fmt.Sprintf("localhost:333%d", rand.Intn(99))
 		l, err := net.Listen("tcp", address)
 		require.NoError(t, err)
 
@@ -156,7 +156,7 @@ func TestProofOfWork_SolveChallenge(t *testing.T) {
 
 	pow := NewProofOfWork(uint8(targetBits), readTimeOut)
 
-	address := fmt.Sprintf("localhost:111%d", rand.Intn(99))
+	address := fmt.Sprintf("localhost:333%d", rand.Intn(99))
 	l, err := net.Listen("tcp", address)
 	require.NoError(t, err)
 
@@ -175,7 +175,7 @@ func TestProofOfWork_SolveChallenge(t *testing.T) {
 
 	pow = NewProofOfWork(uint8(targetBits), readTimeOut)
 
-	address = fmt.Sprintf("localhost:111%d", rand.Intn(99))
+	address = fmt.Sprintf("localhost:333%d", rand.Intn(99))
 	l, err = net.Listen("tcp", address)
 	require.NoError(t, err)
 
@@ -196,7 +196,7 @@ func TestSolveChallenge(t *testing.T) {
 		data := "127.0.0.1"
 		pow := NewProofOfWork(uint8(targetBits), 0)
 
-		address := fmt.Sprintf("localhost:111%d", targetBits)
+		address := fmt.Sprintf("localhost:222%d", targetBits)
 		l, err := net.Listen("tcp", address)
 		require.NoError(t, err)
 
@@ -220,7 +220,7 @@ func TestSolveChallenge(t *testing.T) {
 		}
 		pow := NewProofOfWork(uint8(targetBits), 0)
 
-		address := fmt.Sprintf("localhost:111%d", rand.Intn(99))
+		address := fmt.Sprintf("localhost:222%d", rand.Intn(99))
 		l, err := net.Listen("tcp", address)
 		require.NoError(t, err)
 
@@ -241,7 +241,7 @@ func TestSolveChallenge(t *testing.T) {
 
 	pow := NewProofOfWork(uint8(targetBits), readTimeOut)
 
-	address := fmt.Sprintf("localhost:111%d", rand.Intn(99))
+	address := fmt.Sprintf("localhost:222%d", rand.Intn(99))
 	l, err := net.Listen("tcp", address)
 	require.NoError(t, err)
 
@@ -260,7 +260,7 @@ func TestSolveChallenge(t *testing.T) {
 
 	pow = NewProofOfWork(uint8(targetBits), readTimeOut)
 
-	address = fmt.Sprintf("localhost:111%d", rand.Intn(99))
+	address = fmt.Sprintf("localhost:222%d", rand.Intn(99))
 	l, err = net.Listen("tcp", address)
 	require.NoError(t, err)
 
