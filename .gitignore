@@ -20,3 +20,5 @@
 # IDE
 .idea
 .vscode
+server/internal/ent
+db
