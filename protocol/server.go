@@ -20,12 +20,14 @@ type serverChallengeResponse interface {
 	IsError(error) bool                                 // Method to check if an error is of type 'PowError'
 }
 
+// Request of the protocol
 type Request string
 
+// Response of the protocol
 type Response string
 
 // Handler function to be executed for incoming connections
-type Handler func(Request) (Response, error)
+type Handler func(*Request) (*Response, error)
 
 // Server for handling tcp connection for Quote server
 type Server struct {
@@ -92,7 +94,7 @@ type conn struct {
 func (c *conn) serve() {
 	syn, err := c.syn()
 	if err != nil {
-		c.server.logger.Errorf("serve - syn: %v", err)
+		c.close(fmt.Errorf("serve - syn: %v", err))
 		return
 	}
 
@@ -103,7 +105,7 @@ func (c *conn) serve() {
 	}
 	err = c.ack(syn, crComplexity)
 	if err != nil {
-		c.server.logger.Errorf("serve - ack: %v", err)
+		c.close(fmt.Errorf("serve - ack: %v", err))
 		return
 	}
 
@@ -114,10 +116,7 @@ func (c *conn) serve() {
 			if err == io.EOF {
 				return
 			}
-			c.server.logger.Errorf("serve - ReadSlice: %v", err)
-			if err = c.rwc.Close(); err != nil {
-				c.server.logger.Fatal(err)
-			}
+			c.close(fmt.Errorf("serve - ReadSlice: %v", err))
 			return
 		}
 
@@ -136,21 +135,16 @@ func (c *conn) serve() {
 		}
 
 		// Call the server's handler function to handle the connection
-		res, err := c.server.handler(Request(req))
+		request := Request(req)
+		res, err := c.server.handler(&request)
 		if err != nil {
-			c.server.logger.Errorf("serve - handler: %v", err)
-			if err = c.rwc.Close(); err != nil {
-				c.server.logger.Fatal(err)
-			}
+			c.close(fmt.Errorf("serve - handler: %v", err))
 			return
 		}
 		// Send Response to the client
-		_, err = c.rwc.Write([]byte(fmt.Sprint(string(res), "\n")))
+		_, err = c.rwc.Write([]byte(fmt.Sprint(string(*res), "\n")))
 		if err != nil {
-			c.server.logger.Errorf("serve - Write: %v", err)
-			if err = c.rwc.Close(); err != nil {
-				c.server.logger.Fatal(err)
-			}
+			c.close(fmt.Errorf("serve - Write: %v", err))
 			return
 		}
 	}
@@ -177,4 +171,12 @@ func (c *conn) ack(syn, pow int16) error {
 	data := int32(syn + pow)
 	err := binary.Write(c.rwc, binary.LittleEndian, data)
 	return err
+}
+
+// close connection and log.
+func (c *conn) close(err error) {
+	c.server.logger.Error(err)
+	if err = c.rwc.Close(); err != nil {
+		c.server.logger.Fatal(err)
+	}
 }
