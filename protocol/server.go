@@ -2,8 +2,10 @@
 package protocol
 
 import (
+	"bufio"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"net"
 	"time"
 
@@ -18,8 +20,12 @@ type serverChallengeResponse interface {
 	IsError(error) bool                                 // Method to check if an error is of type 'PowError'
 }
 
+type Request string
+
+type Response string
+
 // Handler function to be executed for incoming connections
-type Handler func(conn net.Conn) error
+type Handler func(Request) (Response, error)
 
 // Server for handling tcp connection for Quote server
 type Server struct {
@@ -101,24 +107,52 @@ func (c *conn) serve() {
 		return
 	}
 
-	// Perform challenge-response, if the protocol is implemented
-	if c.server.crProto != serverChallengeResponse(nil) {
-		err = c.server.crProto.ChallengeResponse(c.rwc, []byte(fmt.Sprint(c.rwc.RemoteAddr().String(), c.rwc.LocalAddr().String())))
+	for {
+		// Receive a message from the client
+		req, err := bufio.NewReader(c.rwc).ReadSlice('\n')
 		if err != nil {
-			if !c.server.crProto.IsError(err) {
-				c.server.logger.Errorf("serve - ChallengeResponse: %v. From = %s.", err, c.rwc.RemoteAddr().String())
+			if err == io.EOF {
+				return
 			}
+			c.server.logger.Errorf("serve - ReadSlice: %v", err)
 			if err = c.rwc.Close(); err != nil {
 				c.server.logger.Fatal(err)
 			}
 			return
 		}
-	}
 
-	// Call the server's handler function to handle the connection
-	err = c.server.handler(c.rwc)
-	if err != nil {
-		c.server.logger.Errorf("serve - handler: %v", err)
+		// Perform challenge-response, if the protocol is implemented
+		if c.server.crProto != serverChallengeResponse(nil) {
+			err = c.server.crProto.ChallengeResponse(c.rwc, []byte(fmt.Sprint(c.rwc.RemoteAddr().String(), c.rwc.LocalAddr().String())))
+			if err != nil {
+				if !c.server.crProto.IsError(err) {
+					c.server.logger.Errorf("serve - ChallengeResponse: %v. From = %s.", err, c.rwc.RemoteAddr().String())
+				}
+				if err = c.rwc.Close(); err != nil {
+					c.server.logger.Fatal(err)
+				}
+				return
+			}
+		}
+
+		// Call the server's handler function to handle the connection
+		res, err := c.server.handler(Request(req))
+		if err != nil {
+			c.server.logger.Errorf("serve - handler: %v", err)
+			if err = c.rwc.Close(); err != nil {
+				c.server.logger.Fatal(err)
+			}
+			return
+		}
+		// Send Response to the client
+		_, err = c.rwc.Write([]byte(fmt.Sprint(string(res), "\n")))
+		if err != nil {
+			c.server.logger.Errorf("serve - Write: %v", err)
+			if err = c.rwc.Close(); err != nil {
+				c.server.logger.Fatal(err)
+			}
+			return
+		}
 	}
 }
 
