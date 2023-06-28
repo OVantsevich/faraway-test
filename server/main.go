@@ -1,22 +1,22 @@
 package main
 
 import (
-	"bufio"
 	"context"
-	"crypto/sha256"
 	"fmt"
-	"github.com/OVantsevich/faraway-test/server/protocol"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 	stdlog "log"
 	"net"
 	"time"
 
+	"github.com/OVantsevich/faraway-test/protocol"
 	_ "github.com/mattn/go-sqlite3"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/OVantsevich/faraway-test/server/infrastructure/logger"
 	"github.com/OVantsevich/faraway-test/server/internal/config"
 	"github.com/OVantsevich/faraway-test/server/internal/ent"
+	"github.com/OVantsevich/faraway-test/server/internal/handler"
+	"github.com/OVantsevich/faraway-test/server/internal/migrations"
 )
 
 func main() {
@@ -43,25 +43,18 @@ func main() {
 	if err := client.Schema.Create(ctx); err != nil {
 		logger.Fatalf("failed creating schema resources: %v", err)
 	}
+	client, err = migrations.QuoteMigrations(ctx, client)
+	if err != nil {
+		logger.Fatalf("failed migrating schema resources: %v", err)
+	}
 
-	_, err = client.Quote.Create().SetID("dsa").SetData("ds").SetCreated(time.Now()).SetUpdated(time.Now()).Save(context.Background())
-	if err != nil {
-		logger.Error(err)
-	}
-	q, err := client.Quote.Query().All(context.Background())
-	if err != nil {
-		logger.Error(err)
-	}
-	fmt.Print(q)
+	quoteHandler := handler.NewQuoteHandler(client, logger)
 
 	l, err := net.Listen("tcp", fmt.Sprintf("%s:%s", cfg.ServiceHost, cfg.ServicePort))
-	c, err := l.Accept()
+	server := protocol.NewServer(logger, nil, time.Second*120, quoteHandler.GetQuote)
 
-	r := bufio.NewReader(c)
-	r.ReadString('a')
-	a := protocol.NewProofOfWork(30, sha256.New())
-
-	time.Sleep(time.Hour)
+	logger.Infof("Server listened on: %v", l.Addr())
+	logger.Fatal(server.Serve(l))
 }
 
 func zapLoggerInit(env config.Environment, serviceName string) (*zap.Logger, error) {
