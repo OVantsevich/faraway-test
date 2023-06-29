@@ -1,36 +1,30 @@
-FROM golang:1.20 AS builder
+FROM golang:1.20-alpine AS builder
 
-RUN apt-get update && apt-get install -y gcc-aarch64-linux-gnu
-
-ENV GO111MODULE=on \
-    CGO_ENABLED=1 \
+ENV CGO_ENABLED=1 \
+    GO111MODULE=on \
     GOOS=linux \
     GOARCH=amd64
 
+RUN apk add --no-cache --update go gcc g++
+
 WORKDIR /app
-
-RUN CGO_ENABLED=1 CC=aarch64-linux-gnu-gcc GOOS=linux GOARCH=arm64
-
-
-COPY go.mod .
-COPY go.sum .
-RUN go mod download
 
 COPY . .
 
+WORKDIR /app/internal/ent
+RUN go generate
 
+WORKDIR /app
 RUN go build -o /app/main
-
-CMD [ "/main" ]
 
 FROM alpine
 
 WORKDIR /app
 
-COPY --from=builder /app/main /app/main
+RUN mkdir db
 
-RUN mkdir -p db
+COPY --from=builder /app/main .
 
-RUN chmod +x /app/main
+EXPOSE 12345
 
 CMD ["/app/main"]

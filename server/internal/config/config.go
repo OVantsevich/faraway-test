@@ -25,6 +25,8 @@ type Config struct {
 	Environment Environment `env:"ENVIRONMENT,notEmpty" envDefault:"PROD"`
 
 	Sqlite
+
+	Pow
 }
 
 // New creates a new config of the service
@@ -46,7 +48,7 @@ func New() (*Config, error) {
 
 func (c *Config) validate() error {
 	switch c.Sqlite.SQLiteMode {
-	case SQLITE_OPEN_CREATE, SQLITE_OPEN_READONLY, SQLITE_OPEN_READWRITE, SQLITE_OPEN_MEMORY:
+	case SqliteOpenCreate, SqliteOpenReadonly, SqliteOpenReadwrite, SqliteOpenMemory:
 	default:
 		return fmt.Errorf(`specified SQLiteMode doesn't exist`)
 	}

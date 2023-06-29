@@ -4,6 +4,7 @@ go 1.20
 
 require (
 	entgo.io/ent v0.12.3
+	github.com/OVantsevich/faraway-test/protocol v0.0.0-20230628092514-1ef974f17ccc
 	github.com/caarlos0/env/v6 v6.10.1
 	github.com/google/uuid v1.3.0
 	github.com/mattn/go-sqlite3 v1.14.17
@@ -12,7 +13,6 @@ require (
 
 require (
 	ariga.io/atlas v0.10.2-0.20230427182402-87a07dfb83bf // indirect
-	github.com/OVantsevich/faraway-test/protocol v0.0.0-20230628092514-1ef974f17ccc // indirect
 	github.com/agext/levenshtein v1.2.1 // indirect
 	github.com/apparentlymart/go-textseg/v13 v13.0.0 // indirect
 	github.com/go-openapi/inflect v0.19.0 // indirect

@@ -78,6 +78,7 @@ run:
     - vendor
     - e2e
     - test
+    - ent
 
 issues:
   max-same-issues: 0

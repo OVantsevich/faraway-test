@@ -20,5 +20,11 @@
 # IDE
 .idea
 .vscode
-server/internal/ent
+
+# ENT
+server/internal/ent/*
+!server/internal/ent/schema
+!server/internal/ent/generate.go
+
+# SQLite
 db

@@ -1,0 +1,41 @@
+version: '3'
+
+env:
+  SERVER_IMAGE_NAME: server
+  SERVER_IMAGE_TAG: v1
+  USERNAME: ovantsevich
+
+  SERVICE_NAME: "Word of Wisdom"
+  SERVICE_HOST: "0.0.0.0"
+  SERVICE_PORT: 12345
+  ENVIRONMENT: PROD
+  TARGET_BITS: 20
+  READ_TIMEOUT: 60000
+  DB_NAME: database
+  SQLITE_MODE: rwc
+
+  SERVER_CONTAINER_PORT: 12345
+
+tasks:
+  server:
+    cmds:
+      - task: server-run
+
+  server-vet-test:
+    dir: 'server'
+    cmds:
+      - go vet ./...
+      - go test ./...
+
+  server-build:
+    deps: [server-vet-test]
+    internal: true
+    cmds:
+      - docker build -t {{.USERNAME}}/{{.SERVER_IMAGE_NAME}}:{{.SERVER_IMAGE_TAG}} server
+
+  server-run:
+    deps: [server-build]
+    internal: true
+    cmds:
+      - docker-compose up -d
+

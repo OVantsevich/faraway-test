@@ -51,7 +51,15 @@ func main() {
 	quoteHandler := handler.NewQuoteHandler(client, logger)
 
 	l, err := net.Listen("tcp", fmt.Sprintf("%s:%s", cfg.ServiceHost, cfg.ServicePort))
-	server := protocol.NewServer(logger, nil, time.Second*120, quoteHandler.GetQuote)
+	if err != nil {
+		logger.Fatalf("failed migrating schema resources: %v", err)
+	}
+
+	var pow *protocol.ProofOfWork
+	if cfg.TargetBits != 0 {
+		pow = protocol.NewProofOfWork(cfg.TargetBits, time.Duration(cfg.ReadTimeout*1000)*time.Millisecond)
+	}
+	server := protocol.NewServer(logger, pow, time.Second*120, quoteHandler.GetQuote)
 
 	logger.Infof("Server listened on: %v", l.Addr())
 	logger.Fatal(server.Serve(l))

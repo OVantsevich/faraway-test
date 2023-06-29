@@ -1,26 +1,20 @@
-FROM golang:1.20 AS build
+FROM golang:1.20 AS builder
 
-ENV GO111MODULE=on \
-    CGO_ENABLED=0 \
+ENV CGO_ENABLED=0 \
+    GO111MODULE=on \
     GOOS=linux \
     GOARCH=amd64
 
 WORKDIR /app
 
-COPY go.mod .
-COPY go.sum .
-RUN go mod download
-
 COPY . .
 
 RUN go build -o /app/main
-
-CMD [ "/main" ]
 
 FROM alpine
 
 WORKDIR /app
 
-COPY --from=build /app/main /app/main
+COPY --from=builder /app/main .
 
 CMD ["/app/main"]

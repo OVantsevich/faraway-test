@@ -1,0 +1,17 @@
+version: '3.7'
+services:
+  server:
+    build:
+      context: server
+    image: ovantsevich/server:v1
+    ports:
+      - "12345:12345"
+    environment:
+      - SERVICE_NAME=Word of Wisdom
+      - SERVICE_HOST=0.0.0.0
+      - SERVICE_PORT=12345
+      - ENVIRONMENT=PROD
+      - TARGET_BITS=20
+      - READ_TIMEOUT=60000
+      - DB_NAME=database
+      - SQLITE_MODE=rwc
