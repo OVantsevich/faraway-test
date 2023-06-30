@@ -21,7 +21,13 @@ tasks:
     cmds:
       - task: server-run
 
+  server-ent-get:
+    dir: 'server/internal/ent'
+    cmds:
+      - go generate
+
   server-vet-test:
+    deps: [server-ent-get]
     dir: 'server'
     cmds:
       - go vet ./...

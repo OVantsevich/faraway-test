@@ -15,7 +15,7 @@ import (
 var app = tview.NewApplication()
 var text = tview.NewTextView().
 	SetTextColor(tcell.ColorGreen).
-	SetText("(g) to get random quote \n(q) to quit")
+	SetText("(a) to get random quote \n(q) to quit")
 var quote = tview.NewTextView().
 	SetTextColor(tcell.ColorBisque)
 var flex = tview.NewFlex()
