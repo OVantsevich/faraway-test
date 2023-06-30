@@ -45,3 +45,18 @@ tasks:
     cmds:
       - docker-compose up -d
 
+  client:
+    cmds:
+      - task: client-build-run
+
+  client-vet-test:
+    dir: 'client'
+    cmds:
+      - go vet ./...
+      - go test ./...
+
+  client-build-run:
+    deps: [client-vet-test]
+    dir: 'client'
+    cmds:
+      - go run main.go
