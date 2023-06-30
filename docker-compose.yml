@@ -11,7 +11,7 @@ services:
       - SERVICE_HOST=0.0.0.0
       - SERVICE_PORT=12345
       - ENVIRONMENT=PROD
-      - TARGET_BITS=20
+      - TARGET_BITS=0
       - READ_TIMEOUT=60000
       - DB_NAME=database
       - SQLITE_MODE=rwc
